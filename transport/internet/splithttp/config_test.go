@@ -185,3 +185,33 @@ func Test_WriteResponseHeader_ResponseHeaders(t *testing.T) {
 		assert.Equal(t, "https://origin.example.com", recorder.Header().Get("Access-Control-Allow-Origin"))
 	})
 }
+
+func Test_WriteErrorResponse(t *testing.T) {
+	t.Run("bare default when unset", func(t *testing.T) {
+		c := &Config{}
+		recorder := httptest.NewRecorder()
+		c.WriteErrorResponse(recorder, http.StatusNotFound)
+		assert.Equal(t, http.StatusNotFound, recorder.Code)
+		assert.Empty(t, recorder.Body.String())
+		assert.Empty(t, recorder.Header().Get("Content-Type"))
+	})
+
+	t.Run("configured body and content type", func(t *testing.T) {
+		c := &Config{ErrorResponse: &ErrorResponse{Body: `{"error":"forbidden"}`, ContentType: "application/json"}}
+		recorder := httptest.NewRecorder()
+		c.WriteErrorResponse(recorder, http.StatusNotFound)
+		assert.Equal(t, http.StatusNotFound, recorder.Code)
+		assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, `{"error":"forbidden"}`, recorder.Body.String())
+	})
+
+	t.Run("padding reject status default", func(t *testing.T) {
+		c := &Config{}
+		assert.Equal(t, http.StatusBadRequest, c.GetNormalizedPaddingRejectStatus())
+	})
+
+	t.Run("padding reject status override", func(t *testing.T) {
+		c := &Config{ErrorResponse: &ErrorResponse{StatusCode: 403}}
+		assert.Equal(t, http.StatusForbidden, c.GetNormalizedPaddingRejectStatus())
+	})
+}
